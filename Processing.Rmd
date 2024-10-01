@@ -1,0 +1,278 @@
+
+Load DATA
+----------
+```{r}
+url <- "https://web1.sph.emory.edu/dkleinb/allDatasets/datasets/evans.dat"
+
+# Lecture du fichier
+evans_data <- read.table(url, header = TRUE)
+
+# Afficher les premières lignes du dataset
+head(evans_data)
+```
+
+Let’s name the columns of our data set
+--------------------------------------
+```{r}
+names(evans_data) <- c("id","chd","cat","age","chl","smk","ecg","dbp","sbp","hpt","ch","cc") 
+```
+
+```{r}
+evans_data
+
+```
+Look for missing values
+----------------------------
+```{r}
+is.na(evans_data)
+```
+
+```{r}
+summary(evans_data)
+```
+
+
+```{r}
+sum(is.na(evans_data))
+```
+
+
+```{r}
+is.null(evans_data)
+```
+#We are lucky enough to work with data without missing values
+
+
+Now let us look for the values
+------------------------------
+
+```{r}
+boxplot(evans_data[])
+```
+#it is not practical to make all the boxplots on the same drawing given the coexistence of continuous and discontinuous variables even observe the boxplots we find well the existence of outliers for that we will study the distribution of the variables continue trying to eliminate outliers
+
+
+```{r}
+names(evans_data)
+```
+
+
+
+```{r}
+boxplot(evans_data["age"])
+```
+#the age variable is without outliers 
+
+```{r}
+boxplot(evans_data["chl"])
+
+```
+
+
+```{r}
+outliers_chl=boxplot.stats(evans_data$chl)$out
+
+outliers_chl
+
+```
+
+```{r}
+outlier_chl_idx=which(evans_data$chl %in% c(outliers_chl))
+outlier_chl_idx
+
+```
+#Now the strategy for filling these values is:
+
+```{r}
+median_chl=median(evans_data$chl)
+
+```
+
+```{r}
+summary(evans_data$chl)
+```
+
+
+```{r}
+
+evans_data$chl[outlier_chl_idx] = median_chl
+
+```
+
+
+
+```{r}
+
+boxplot(evans_data$chl)
+
+```
+
+
+```{r}
+boxplot(evans_data["dbp"])
+
+```
+
+
+```{r}
+outliers_dbp=boxplot.stats(evans_data$dbp)$out
+outlier_dbp_idx=which(evans_data$dbp %in% c(outliers_dbp))
+outlier_dbp_idx
+```
+
+```{r}
+median_dbp=median(evans_data$dbp)
+```
+
+```{r}
+evans_data$dbp[outlier_dbp_idx] = median_dbp
+
+```
+
+```{r}
+boxplot(evans_data$dbp)
+```
+
+```{r}
+boxplot(evans_data["sbp"])
+```
+
+
+```{r}
+outliers_sbp=boxplot.stats(evans_data$sbp)$out
+outlier_sbp_idx=which(evans_data$sbp %in% c(outliers_sbp))
+outlier_sbp_idx
+```
+
+
+```{r}
+median_sbp=median(evans_data$sbp)
+evans_data$sbp[outlier_sbp_idx]=median_sbp
+```
+
+```{r}
+boxplot(evans_data$sbp)
+
+```
+
+```{r}
+boxplot(evans_data["age"])
+
+```
+
+
+```{r}
+head(evans_data)
+```
+
+# after taking off with outliers, we will now see the distribution of our data
+```{r}
+boxplot(evans_data)
+```
+
+```{r}
+hist(evans_data$age, main = "Distribution de l'âge", xlab = "Âge", col = "blue")
+hist(evans_data$chl, main = "Distribution du cholestérol", xlab = "Cholestérol", col = "green")
+hist(evans_data$dbp, main = "Distribution de la pression diastolique", xlab = "DBP", col = "orange")
+```
+
+```{r}
+table(evans_data$chd)
+table(evans_data$smk)
+table(evans_data$ecg)
+
+```
+
+#we see clearly that the imbalnaced of classes from our target are a big problem the next step is the processing of balanced data:
+
+#if we train the model without dealing with imbalanced data we get
+
+```{r}
+myreg <- glm(chd ~ age + chl + smk + ecg + dbp + sbp, data = evans_data, family = binomial(link = "logit"))
+```
+
+
+```{r}
+summary(myreg)
+```
+
+```{r}
+predictions_myreg <- predict(myreg, type = "response")
+
+predicted_class_myreg <- ifelse(predictions_myreg > 0.5, 1, 0)
+confusionMatrix(as.factor(predicted_class_myreg), as.factor(evans_data$chd))
+
+
+```
+
+
+
+
+
+
+#There is a class imbalance of the target variable 80% of class 0 and 20% of class 1 which has misled the model result mainly because the accuracy found by the 80% that is the percentage of the majorating class for which we will try to balance the classes
+```{r}
+install.packages("smotefamily")
+
+```
+
+
+```{r}
+library(smotefamily)
+```
+
+
+
+
+
+```{r}
+data_smote = SMOTE(evans_data[, c("age", "chl", "smk", "ecg", "dbp", "sbp")], evans_data$chd, K = 5)
+
+```
+
+```{r}
+head(data_smote)
+
+```
+
+```{r}
+str(data_smote)
+```
+
+```{r}
+data_smote$data$class <- as.numeric(data_smote$data$class)
+table(data_smote$data$class)
+
+
+```
+
+
+
+
+
+
+#The problem of class selectivity could be mitigated by smooting, with 51% of class 0 and 49% of class
+
+
+
+```{r}
+str(data_smote)
+
+
+```
+
+Correlation
+-----------
+```{r}
+cor(evans_data[, c("age", "chl", "dbp", "sbp")])
+
+```
+#after calculating the correlation matrix we find scores above 80% which shows that we do not have a strong correlation and we do not need to overwrite any of the correlated variables
+
+```{r}
+myreg_smote <- glm(class ~ age + chl + smk + ecg + dbp + sbp, 
+                          data = data_smote$data, family = binomial(link = "logit"))
+
+summary(myreg_smote)
+```
+
